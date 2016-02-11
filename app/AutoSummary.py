@@ -1,7 +1,7 @@
 import sqlite3 as sqllite
 import sys
 
-from flask import Flask, jsonify, request
+from flask import Flask, request
 
 from sumy.parsers.plaintext import PlaintextParser
 from sumy.nlp.tokenizers import Tokenizer
@@ -139,6 +139,10 @@ class ReviewSummarizer:
     def __init__(self):
         self.dal = ReviewDAL()
 
+    def get_summary_generic(self, js, length=DEFAULT_LEN, algorithm=DEFAULT_ALGORITHM):
+            corpus = ". ".join([item for item in js['sentences']])
+            return self.summarize(corpus, length, algorithm)
+
     def get_summary_by_assignment_criterion(self, aid, cid, length=DEFAULT_LEN, algorithm=DEFAULT_ALGORITHM):
         row = self.dal.get_reviews_by_assignment_criterion(aid, cid)
         if len(row) == 0 :
@@ -197,16 +201,16 @@ class ReviewSummarizer:
 
 app = Flask(__name__)
 api = Api(app, version='1.0', title='Summary API',
-    description='A simple summarization API with sumy library',
+    description='A simple review summarization API which uses Python\'s sumy library',
 )
 
-ns = api.namespace('v1.0', 'Text Summary v 1.0 ')
+ns = api.namespace('v1.0', 'Text Summary v1.0 ')
 
 parser = api.parser()
 parser.add_argument('reviews', required=True, location='json', help='Input Format -> {"reviews":[ {"reviewer_id":"string","reviewee_id":"string","score":"string","feedback":"string"}]}')
 
 parser_sum = api.parser()
-parser_sum.add_argument('sentences', required=True, location='json', help='Input Format -> {"sentences":[ "sentence1" ]')
+parser_sum.add_argument('sentences', required=True, location='json', help='Input Format -> {"sentences":["sentence1"]')
 
 
 ###### Definition of data model for documentation
@@ -521,7 +525,7 @@ class GenericSummary(Resource):
 
     sum = ReviewSummarizer()
 
-    @api.doc(parser=parser)
+    @api.doc(parser=parser_sum)
     @api.marshal_with(summary_marshaller)
     def post(self):
         '''Summarize a given set of sentences'''
@@ -537,7 +541,7 @@ class SummaryLen(Resource):
 
     sum = ReviewSummarizer()
 
-    @api.doc(parser=parser)
+    @api.doc(parser=parser_sum)
     @api.marshal_with(summary_marshaller)
     def post(self, length):
         '''Summarize a given set of sentences and length of the summary'''
@@ -553,7 +557,7 @@ class SummaryLen(Resource):
 
     sum = ReviewSummarizer()
 
-    @api.doc(parser=parser)
+    @api.doc(parser=parser_sum)
     @api.marshal_with(summary_marshaller)
     def post(self, length, algorithm):
         '''Summarize a given set of sentences, length of the summar, and type of algorithm'''
@@ -569,7 +573,7 @@ class SummaryLen(Resource):
 
 
 if __name__ == '__main__':
-    app.run()
+    app.run(port=5003)
 
 
 
