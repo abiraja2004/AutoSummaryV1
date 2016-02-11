@@ -1,6 +1,5 @@
 import sqlite3 as sqllite
 import sys
-
 from flask import Flask, request
 
 from sumy.parsers.plaintext import PlaintextParser
@@ -200,9 +199,15 @@ class ReviewSummarizer:
 
 
 app = Flask(__name__)
+#app.config['SERVER_NAME'] = 'eb2-2210-stl02.local:5003'
+
 api = Api(app, version='1.0', title='Summary API',
-    description='A simple review summarization API which uses Python\'s sumy library',
+    description='A simple review summarization API which uses Python\'s sumy library'
 )
+
+
+
+app.config.SWAGGER_UI_DOC_EXPANSION = 'list'
 
 ns = api.namespace('v1.0', 'Text Summary v1.0 ')
 
@@ -573,7 +578,7 @@ class SummaryLen(Resource):
 
 
 if __name__ == '__main__':
-    app.run(port=5003)
+    app.run(host= '0.0.0.0', port=3004)
 
 
 
