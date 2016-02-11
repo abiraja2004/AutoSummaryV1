@@ -1,22 +1,22 @@
 import sqlite3 as sqllite
 import sys
-from flask import Flask, request
 
-from sumy.parsers.plaintext import PlaintextParser
+from flask import Flask, request
+from sumy.nlp.stemmers import Stemmer
 from sumy.nlp.tokenizers import Tokenizer
-from sumy.summarizers.text_rank import TextRankSummarizer
-from sumy.summarizers.luhn import LuhnSummarizer
+from sumy.parsers.plaintext import PlaintextParser
 from sumy.summarizers.edmundson import EdmundsonSummarizer
 from sumy.summarizers.kl import KLSummarizer
 from sumy.summarizers.lex_rank import LexRankSummarizer
 from sumy.summarizers.lsa import LsaSummarizer
-from sumy.summarizers.sum_basic import SumBasicSummarizer
+from sumy.summarizers.luhn import LuhnSummarizer
 from sumy.summarizers.random import RandomSummarizer
-
-from sumy.nlp.stemmers import Stemmer
+from sumy.summarizers.sum_basic import SumBasicSummarizer
+from sumy.summarizers.text_rank import TextRankSummarizer
 from sumy.utils import get_stop_words
 
-from flask_restplus import Api, Resource, fields, marshal, abort
+from app.flask_restplus import fields
+from flask_restplus import Api, Resource, marshal, abort
 
 
 class ReviewDAL:
@@ -199,17 +199,15 @@ class ReviewSummarizer:
 
 
 app = Flask(__name__)
-#app.config['SERVER_NAME'] = 'eb2-2210-stl02.local:5003'
+
 
 api = Api(app, version='1.0', title='Summary API',
     description='A simple review summarization API which uses Python\'s sumy library'
 )
 
-
-
 app.config.SWAGGER_UI_DOC_EXPANSION = 'list'
 
-ns = api.namespace('v1.0', 'Text Summary v1.0 ')
+ns = api.namespace('sum/v1.0', 'Text Summary v1.0 ')
 
 parser = api.parser()
 parser.add_argument('reviews', required=True, location='json', help='Input Format -> {"reviews":[ {"reviewer_id":"string","reviewee_id":"string","score":"string","feedback":"string"}]}')
