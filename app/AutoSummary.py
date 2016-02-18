@@ -15,8 +15,7 @@ from sumy.summarizers.sum_basic import SumBasicSummarizer
 from sumy.summarizers.text_rank import TextRankSummarizer
 from sumy.utils import get_stop_words
 
-from app.flask_restplus import fields
-from flask_restplus import Api, Resource, marshal, abort
+from flask_restplus import Api, Resource, marshal, abort, fields
 
 
 class ReviewDAL:
@@ -139,38 +138,59 @@ class ReviewSummarizer:
         self.dal = ReviewDAL()
 
     def get_summary_generic(self, js, length=DEFAULT_LEN, algorithm=DEFAULT_ALGORITHM):
-            corpus = ". ".join([item for item in js['sentences']])
-            return self.summarize(corpus, length, algorithm)
+            info = self.get_summary_generic_raw(js, length, algorithm)
+            return self.merge_summary(info)
 
-    def get_summary_by_assignment_criterion(self, aid, cid, length=DEFAULT_LEN, algorithm=DEFAULT_ALGORITHM):
+    def get_summary_generic_raw(self, js, length=DEFAULT_LEN, algorithm=DEFAULT_ALGORITHM):
+            corpus = ". ".join([item for item in js['sentences']])
+            info = self.summarize_with_info(corpus, length, algorithm)
+            return info
+
+    def get_summary_by_assignment_criterion_raw(self, aid, cid, length=DEFAULT_LEN, algorithm=DEFAULT_ALGORITHM):
         row = self.dal.get_reviews_by_assignment_criterion(aid, cid)
         if len(row) == 0 :
             return ''
         else:
             # comments = [{"reviewer_id":item[0], reviewee_id":item[1], "score":item[2], "feedback":item[3]} for item in row]
             corpus = ". ".join([item['feedback'] for item in row])
-            return self.summarize(corpus, length, algorithm)
+            info = self.summarize_with_info(corpus, length, algorithm)
+            return info
 
-    def get_summary_by_assignment_criterion_reviewee(self, aid, cid, sid, length=DEFAULT_LEN, algorithm=DEFAULT_ALGORITHM):
+    def get_summary_by_assignment_criterion(self, aid, cid, length=DEFAULT_LEN, algorithm=DEFAULT_ALGORITHM):
+       info = self.get_summary_by_assignment_criterion_raw(aid, cid, length, algorithm)
+       return self.merge_summary(info)
+
+    def get_summary_by_assignment_criterion_reviewee_raw(self, aid, cid, sid, length=DEFAULT_LEN, algorithm=DEFAULT_ALGORITHM):
         row = self.dal.get_reviews_by_assignment_criterion_reviewee(aid, cid, sid)
         if len(row) == 0 :
             return ''
         else:
             # comments = [{"reviewer_id":item[0], "score":item[1], "feedback":item[2]} for item in row]
             corpus = ". ".join([item['feedback'] for item in row])
-            return self.summarize(corpus, length, algorithm)
+            info = self.summarize_with_info(corpus, length, algorithm)
+            return info
 
 
-    def get_summary_by_assignment_reviewee(self, aid, sid, length=DEFAULT_LEN, algorithm=DEFAULT_ALGORITHM):
+    def get_summary_by_assignment_criterion_reviewee(self, aid, cid, sid, length=DEFAULT_LEN, algorithm=DEFAULT_ALGORITHM):
+        info = self.get_summary_by_assignment_criterion_reviewee_raw(aid, cid, sid, length, algorithm)
+        return self.merge_summary(info)
+
+
+    def get_summary_by_assignment_reviewee_raw(self, aid, sid, length=DEFAULT_LEN, algorithm=DEFAULT_ALGORITHM):
         row = self.dal.get_reviews_by_assignment_reviewee(aid, sid)
         if len(row) == 0 :
             return ''
         else:
             # comments = [{"reviewer_id":item[0], criterion_id":item[1], "score":item[2], "feedback":item[3]} for item in row]
             corpus = ". ".join([item['feedback'] for item in row])
-            return self.summarize(corpus, length, algorithm)
+            info = self.summarize_with_info(corpus, length, algorithm)
+            return self.merge_summary(info)
 
-    def summarize(self, corpus, length, algorithm):
+    def get_summary_by_assignment_reviewee(self, aid, sid, length=DEFAULT_LEN, algorithm=DEFAULT_ALGORITHM):
+        info = self.get_summary_by_assignment_reviewee_raw( aid, sid, length, algorithm)
+        return self.merge_summary(info)
+
+    def summarize_with_info(self, corpus, length, algorithm):
         parser = PlaintextParser.from_string(corpus,Tokenizer(self.LANGUAGE))
 
         if algorithm == "textrank":
@@ -181,6 +201,8 @@ class ReviewSummarizer:
             summarizer = LuhnSummarizer(Stemmer(self.LANGUAGE))
         elif algorithm == "edmundson":
             summarizer = EdmundsonSummarizer(Stemmer(self.LANGUAGE))
+            summarizer.bonus_words = parser.significant_words
+            summarizer.stigma_words = parser.stigma_words
         elif algorithm == "kl":
             summarizer = KLSummarizer(Stemmer(self.LANGUAGE))
         elif algorithm == "lsa":
@@ -193,13 +215,14 @@ class ReviewSummarizer:
             raise NotImplemented("Summary algorithm is not available")
 
         summarizer.stop_words = get_stop_words(self.LANGUAGE)
-        summary = " ".join([obj._text for obj in summarizer(parser.document, length)])
 
-        return summary
+        return summarizer(parser.document, length)
+
+    def merge_summary(self, text_info):
+        return  " ".join([obj.sentence._text for obj in text_info])
 
 
 app = Flask(__name__)
-
 
 api = Api(app, version='1.0', title='Summary API',
     description='A simple review summarization API which uses Python\'s sumy library'
@@ -210,30 +233,40 @@ app.config.SWAGGER_UI_DOC_EXPANSION = 'list'
 ns = api.namespace('sum/v1.0', 'Text Summary v1.0 ')
 
 parser = api.parser()
-parser.add_argument('reviews', required=True, location='json', help='Input Format -> {"reviews":[ {"reviewer_id":"string","reviewee_id":"string","score":"string","feedback":"string"}]}')
+parser.add_argument('reviews', required=True, location='json', help='Input Format : <br>{<br>"reviews":[ {<br>&nbsp;&nbsp;&nbsp;"reviewer_id":"string",<br>&nbsp;&nbsp;&nbsp;"reviewee_id":"string",<br>&nbsp;&nbsp;&nbsp;"score":"string",<br>&nbsp;&nbsp;&nbsp;"feedback":"string"}]<br>}')
 
 parser_sum = api.parser()
 parser_sum.add_argument('sentences', required=True, location='json', help='Input Format -> {"sentences":["sentence1"]')
 
 
 ###### Definition of data model for documentation
-summary_marshaller = api.model('summary_marshaller',{
+summary_marshaller = api.model('summary',{
     'summary': fields.String(description='Summary of the review')
 })
 
-message_marshaller = api.model('message_marshaller',{
+message_marshaller = api.model('message',{
     'message': fields.String(description='Api call status', required=True)
 })
 
-review_marshaller = api.model('review_marshaller',{
+review_marshaller = api.model('review',{
     'reviewer_id': fields.String(description='reviewer ID', required=True),
     'reviewee_id': fields.String(description='reviewee ID', required=True),
     'score': fields.String(description='score', required=True),
     'feedback': fields.String(description='textual feedback', required=True)
 })
 
-review_list_marshaller = api.model('review_list_marshaller',{
+review_list_marshaller = api.model('reviews',{
     'reviews': fields.List(fields.Nested(review_marshaller, description='a list of feedbacks on an assignment')),
+})
+
+summary_info_marshaller = api.model('summary_info',{
+    'text': fields.String(description='text', required=True),
+    'original_order': fields.String(description='order', required=True),
+    'importance': fields.String(description='rating', required=True),
+})
+
+summary_info_list_marshaller = api.model('summary_info_list',{
+    'summary_info': fields.List(fields.Nested(summary_info_marshaller, description='a list of feedbacks on an assignment with the sentence order and rating information')),
 })
 ###### Definition of data model for documentation
 
@@ -251,12 +284,12 @@ class ReviewByAssignmentCriteria(Resource):
     dal = ReviewDAL()
 
     '''Show a list of reviews on an assignment based on a criteria'''
-    @api.marshal_list_with(review_list_marshaller, code=200)
+    @api.marshal_with(review_list_marshaller, code=200)
     def get(self, aid, cid):
         '''Fetch list of reviews on an assignment based on a criteria'''
         results = self.dal.get_reviews_by_assignment_criterion(aid,cid)
         try:
-            return marshal({'reviews':results}, review_list_marshaller), 200
+            return {'reviews':results}, 200
         except Exception as e:
             abort(500, message=str(e))
 
@@ -268,7 +301,7 @@ class ReviewByAssignmentCriteria(Resource):
             abort(404, message=MESSAGE_DOESNT_EXIST)
         else:
             self.dal.del_reviews_by_assignment_criterion(aid, cid)
-            return marshal({'message':MESSAGE_DELETED}, message_marshaller), 200
+            return {'message':MESSAGE_DELETED}, 200
 
     '''Add a list of reviews on an assignment based on a criteria'''
     @api.doc(parser=parser)
@@ -281,7 +314,7 @@ class ReviewByAssignmentCriteria(Resource):
             self.dal.insert_tuples(tuples)
         except Exception as e:
             abort(500, message=str(e))
-        return marshal({'message':MESSAGE_ADDED}, message_marshaller), 200
+        return {'message':MESSAGE_ADDED}, 200
 
 @ns.route('/assignment/<string:aid>/criterion/<string:cid>/reviews/summary')
 @api.doc(params={'aid': 'The assignment ID', 'cid': 'The criteria ID'})
@@ -296,7 +329,24 @@ class SummaryByAssignmentCriteria(Resource):
         '''Summarize reviews given assignment id and criterion id'''
         results = self.sum.get_summary_by_assignment_criterion(aid, cid)
         try:
-            return marshal({'summary':results}, summary_marshaller), 200
+            return {'summary':results}, 200
+        except Exception as e:
+             abort(500, message=str(e))
+
+@ns.route('/assignment/<string:aid>/criterion/<string:cid>/reviews/summaryinfo')
+@api.doc(params={'aid': 'The assignment ID', 'cid': 'The criteria ID'})
+class SummaryInfoByAssignmentCriteria(Resource):
+
+    sum = ReviewSummarizer()
+
+    @api.doc(description='aid and cid should be unique')
+    @api.marshal_with(summary_info_list_marshaller)
+    def get(self, aid, cid):
+        '''Summarize reviews given assignment id and criterion id'''
+        results = self.sum.get_summary_by_assignment_criterion_raw(aid, cid)
+        summary_info = [{'text': obj.sentence._text, 'original_order': obj.order, 'importance': obj.rating } for obj in results]
+        try:
+            return {'summary_info':summary_info}, 200
         except Exception as e:
              abort(500, message=str(e))
 
@@ -312,7 +362,24 @@ class SummaryLengthByAssignmentCriteria(Resource):
         '''Summarize reviews given assignment id, criterion id, and length of the summary'''
         results = self.sum.get_summary_by_assignment_criterion(aid, cid, length=length)
         try:
-            return marshal({'summary':results}, summary_marshaller), 200
+            return {'summary':results},  200
+        except Exception as e:
+             abort(500, message=str(e))
+
+@ns.route('/assignment/<string:aid>/criterion/<string:cid>/reviews/summaryinfo/<int:length>')
+@api.doc(params={'aid': 'The assignment ID', 'cid': 'The criteria ID', 'length': 'Length of the summary'})
+class SummaryInfoLengthByAssignmentCriteria(Resource):
+
+    sum = ReviewSummarizer()
+
+    @api.doc(description='aid and cid should be unique')
+    @api.marshal_with(summary_info_list_marshaller)
+    def get(self, aid, cid, length):
+        '''Summarize reviews given assignment id, criterion id, and length of the summary'''
+        results = self.sum.get_summary_by_assignment_criterion_raw(aid, cid, length)
+        summary_info = [{'text': obj.sentence._text, 'original_order': obj.order, 'importance': obj.rating } for obj in results]
+        try:
+            return {'summary_info':summary_info},  200
         except Exception as e:
              abort(500, message=str(e))
 
@@ -332,9 +399,31 @@ class SummaryLengthAlgorithmByAssignmentCriteria(Resource):
 
         results = self.sum.get_summary_by_assignment_criterion(aid, cid, length=length, algorithm=alg)
         try:
-            return marshal({'summary':results}, summary_marshaller), 200
+            return {'summary':results},  200
         except Exception as e:
             abort(500, message=str(e))       
+
+@ns.route('/assignment/<string:aid>/criterion/<string:cid>/reviews/summaryinfo/<int:length>/<string:algorithm>')
+@api.doc(params={'aid': 'The assignment ID', 'cid': 'The criteria ID', 'length': 'Length of the summary', 'algorithm': 'summarization algorithm, please choose on of these: textrank, lexrank, luhn, edmonson, kl, lsa, sumbasic, random'})
+class SummaryLengthAlgorithmByAssignmentCriteria(Resource):
+
+    sum = ReviewSummarizer()
+
+    @api.doc(description='aid and cid should be unique')
+    @api.marshal_with(summary_info_list_marshaller)
+    def get(self, aid, cid, length, algorithm):
+        '''Summarize reviews given assignment id, criterion id, length of the summary, and algorithm to use'''
+        alg = str(algorithm).lower()
+        if not alg in SUPPORTED_ALGORITHMS:
+            abort(404, message=MESSAGE_ALGORITHM_NOT_SUPPORTED)
+
+        results = self.sum.get_summary_by_assignment_criterion_raw(aid, cid, length=length, algorithm=alg)
+        summary_info = [{'text': obj.sentence._text, 'original_order': obj.order, 'importance': obj.rating } for obj in results]
+        try:
+            return {'summary_info':summary_info},  200
+        except Exception as e:
+            abort(500, message=str(e))
+
 
 
 #########ByAssignmentReviewee
@@ -350,7 +439,7 @@ class ReviewByAssignmentReviewee(Resource):
         '''Fetch reviews given assignment id and reviewee id'''
         results = self.dal.get_reviews_by_assignment_reviewee(aid,sid)
         try:
-            return marshal({'summary':results}, summary_marshaller), 200
+            return {'summary':results}, 200
         except Exception as e:
             abort(500, message=str(e))
 
@@ -362,7 +451,7 @@ class ReviewByAssignmentReviewee(Resource):
             abort(404, message=MESSAGE_DOESNT_EXIST)
         else:
             self.dal.del_reviews_by_assignment_criterion(aid, sid)
-            return marshal({'message':MESSAGE_DELETED}, message_marshaller), 200
+            return {'message':MESSAGE_DELETED}, 200
 
     '''Add a list of reviews on an assignment based on a reviewee'''
     @api.doc(parser=parser)
@@ -375,7 +464,7 @@ class ReviewByAssignmentReviewee(Resource):
             self.dal.insert_tuples(tuples)
         except Exception as e:
             abort(500, message=str(e))
-        return marshal({'message':MESSAGE_ADDED}, message_marshaller), 200
+        return {'message':MESSAGE_ADDED}, 200
 
 @ns.route('/assignment/<string:aid>/reviewee/<string:sid>/reviews/summary')
 @api.doc(params={'aid': 'The assignment ID', 'sid': 'The reviewee ID'})
@@ -389,7 +478,7 @@ class SummaryByAssignmentReviewee(Resource):
         '''Summarize reviews given assignment id and reviewee id'''
         results = self.sum.get_summary_by_assignment_reviewee(aid, sid)
         try:
-            return marshal({'summary':results}, summary_marshaller), 200
+            return {'summary':results}, 200
         except Exception as e:
             abort(500, message=str(e)) 
 
@@ -405,7 +494,7 @@ class SummaryLengthByAssignmentReviewee(Resource):
         '''Summarize reviews given assignment id, reviewee id and length of the summary'''
         results = self.sum.get_summary_by_assignment_reviewee(aid, sid, length=len)
         try:
-            return marshal({'summary':results}, summary_marshaller), 200
+            return {'summary':results}, 200
         except Exception as e:
             abort(500, message=str(e))
 
@@ -427,7 +516,7 @@ class SummaryLengthAlgorithmByAssignmentReviewee(Resource):
 
         results = self.sum.get_summary_by_assignment_criterion(aid, cid, length=len, algorithm=alg)
         try:
-            return marshal({'summary':results}, summary_marshaller), 200
+            return {'summary':results}, 200
         except Exception as e:
             abort(500, message=str(e))
 
@@ -444,7 +533,7 @@ class ReviewByAssignmentRevieweeCriteria(Resource):
         '''Fetch reviews given assignment id, reviewee id, and criterion id'''
         results = self.dal.get_reviews_by_assignment_criterion_reviewee(aid, sid, cid)
         try:
-            return marshal({'reviews':results}, review_list_marshaller), 200
+            return {'reviews':results}, 200
         except Exception as e:
             abort(500, message=str(e))
 
@@ -456,7 +545,7 @@ class ReviewByAssignmentRevieweeCriteria(Resource):
             abort(404, message=MESSAGE_DOESNT_EXIST)
         else:
             self.dal.del_reviews_by_assignment_criterion_reviewee(aid, sid, cid)
-            return marshal({'message':MESSAGE_DELETED}, message_marshaller), 200
+            return {'message':MESSAGE_DELETED}, 200
 
     '''Add a list of reviews on an assignment based on a reviewee'''
     @api.doc(parser=parser)
@@ -469,7 +558,7 @@ class ReviewByAssignmentRevieweeCriteria(Resource):
             self.dal.insert_tuples(tuples)
         except Exception as e:
             return abort(500, message=str(e))
-        return marshal({'message':MESSAGE_ADDED}, message_marshaller), 200
+        return {'message':MESSAGE_ADDED}, 200
 
 @ns.route('/assignment/<string:aid>/reviewee/<string:sid>/criterion/<string:cid>/reviews/summary')
 @api.doc(params={'aid': 'The assignment ID', 'sid': 'reviewee_id', 'cid': 'The criteria ID'})
@@ -482,7 +571,7 @@ class SummaryByAssignmentRevieweeCriteria(Resource):
         '''Summarize reviews given assignment id, reviewee id and criterion id'''
         results = self.sum.get_summary_by_assignment_criterion_reviewee(aid, cid, sid)
         try:
-            return marshal({'summary':results}, summary_marshaller), 200
+            return {'summary':results}, 200
         except Exception as e:
             abort(500, message=str(e))
 
@@ -519,7 +608,7 @@ class SummaryLengthAlgorithmByAssignmentCriteria(Resource):
 
         results = self.sum.get_summary_by_assignment_criterion_reviewee(aid,cid,sid, length=length, algorithm=alg)
         try:
-            return marshal({'summary':results}, summary_marshaller), 200
+            return {'summary':results}, 200
         except Exception as e:
             abort(500, message=str(e))
 
@@ -535,7 +624,7 @@ class GenericSummary(Resource):
         try:
             js = request.get_json()
             results = self.sum.get_summary_generic(js)
-            return marshal({'summary':results}, summary_marshaller), 200
+            return {'summary':results}, 200
         except Exception as e:
             abort(500, message=str(e))
 
@@ -551,7 +640,7 @@ class SummaryLen(Resource):
         try:
             js = request.get_json()
             results = self.sum.get_summary_generic(js, length=length)
-            return marshal({'summary':results}, summary_marshaller), 200
+            return {'summary':results}, 200
         except Exception as e:
             abort(500, message=str(e))
 
@@ -567,7 +656,7 @@ class SummaryLen(Resource):
         try:
             js = request.get_json()
             results=self.sum.get_summary_generic(js, length, algorithm)
-            return marshal({'summary':results}, summary_marshaller), 200
+            return {'summary':results}, 200
         except Exception as e:
             abort(500, message=str(e))
 
