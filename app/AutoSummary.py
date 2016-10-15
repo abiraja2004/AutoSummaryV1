@@ -1,7 +1,10 @@
 import sqlite3 as sqllite
 import sys
 
+
 from flask import Flask, request
+from flask_cors import CORS, cross_origin
+
 from sumy.nlp.stemmers import Stemmer
 from sumy.nlp.tokenizers import Tokenizer
 from sumy.parsers.plaintext import PlaintextParser
@@ -15,8 +18,8 @@ from sumy.summarizers.sum_basic import SumBasicSummarizer
 from sumy.summarizers.text_rank import TextRankSummarizer
 from sumy.utils import get_stop_words
 
-from app.flask_restplus import fields
-from flask_restplus import Api, Resource, marshal, abort
+#from flask_restplus import fields
+from flask_restplus import Api, Resource, marshal, abort, fields
 
 
 class ReviewDAL:
@@ -205,6 +208,8 @@ api = Api(app, version='1.0', title='Summary API',
     description='A simple review summarization API which uses Python\'s sumy library'
 )
 
+CORS(app)
+
 app.config.SWAGGER_UI_DOC_EXPANSION = 'list'
 
 ns = api.namespace('sum/v1.0', 'Text Summary v1.0 ')
@@ -213,7 +218,7 @@ parser = api.parser()
 parser.add_argument('reviews', required=True, location='json', help='Input Format -> {"reviews":[ {"reviewer_id":"string","reviewee_id":"string","score":"string","feedback":"string"}]}')
 
 parser_sum = api.parser()
-parser_sum.add_argument('sentences', required=True, location='json', help='Input Format -> {"sentences":["sentence1"]')
+parser_sum.add_argument('sentences', required=True, location='json', help='Input Format -> {"sentences":["sentence1"]}')
 
 
 ###### Definition of data model for documentation
@@ -244,6 +249,7 @@ SUPPORTED_ALGORITHMS = ['textrank', 'lexrank', 'luhn', 'edmonson', 'kl', 'lsa', 
 MESSAGE_ALGORITHM_NOT_SUPPORTED = 'the algorithm you chosed is not supported , please use: textrank, lexrank, luhn, edmonson, kl, lsa, sumbasic, random'
 
 ########ByAssignmentCriteria
+@cross_origin()
 @ns.route('/assignment/<string:aid>/criterion/<string:cid>/reviews')
 @api.doc(params={'aid': 'The assignment ID', 'cid': 'The criteria ID'})
 class ReviewByAssignmentCriteria(Resource):
@@ -251,7 +257,7 @@ class ReviewByAssignmentCriteria(Resource):
     dal = ReviewDAL()
 
     '''Show a list of reviews on an assignment based on a criteria'''
-    @api.marshal_list_with(review_list_marshaller, code=200)
+    @api.marshal_with(review_list_marshaller, code=200)
     def get(self, aid, cid):
         '''Fetch list of reviews on an assignment based on a criteria'''
         results = self.dal.get_reviews_by_assignment_criterion(aid,cid)
@@ -282,7 +288,7 @@ class ReviewByAssignmentCriteria(Resource):
         except Exception as e:
             abort(500, message=str(e))
         return marshal({'message':MESSAGE_ADDED}, message_marshaller), 200
-
+@cross_origin()
 @ns.route('/assignment/<string:aid>/criterion/<string:cid>/reviews/summary')
 @api.doc(params={'aid': 'The assignment ID', 'cid': 'The criteria ID'})
 class SummaryByAssignmentCriteria(Resource):
@@ -299,7 +305,7 @@ class SummaryByAssignmentCriteria(Resource):
             return marshal({'summary':results}, summary_marshaller), 200
         except Exception as e:
              abort(500, message=str(e))
-
+@cross_origin()
 @ns.route('/assignment/<string:aid>/criterion/<string:cid>/reviews/summary/<int:length>')
 @api.doc(params={'aid': 'The assignment ID', 'cid': 'The criteria ID', 'length': 'Length of the summary'})
 class SummaryLengthByAssignmentCriteria(Resource):
@@ -315,7 +321,7 @@ class SummaryLengthByAssignmentCriteria(Resource):
             return marshal({'summary':results}, summary_marshaller), 200
         except Exception as e:
              abort(500, message=str(e))
-
+@cross_origin()
 @ns.route('/assignment/<string:aid>/criterion/<string:cid>/reviews/summary/<int:length>/<string:algorithm>')
 @api.doc(params={'aid': 'The assignment ID', 'cid': 'The criteria ID', 'length': 'Length of the summary', 'algorithm': 'summarization algorithm, please choose on of these: textrank, lexrank, luhn, edmonson, kl, lsa, sumbasic, random'})
 class SummaryLengthAlgorithmByAssignmentCriteria(Resource):
@@ -338,7 +344,7 @@ class SummaryLengthAlgorithmByAssignmentCriteria(Resource):
 
 
 #########ByAssignmentReviewee
-
+@cross_origin()
 @ns.route('/assignment/<string:aid>/reviewee/<string:sid>/reviews')
 @api.doc(params={'aid': 'The assignment ID', 'sid': 'The reviewee ID'})
 class ReviewByAssignmentReviewee(Resource):
@@ -377,6 +383,7 @@ class ReviewByAssignmentReviewee(Resource):
             abort(500, message=str(e))
         return marshal({'message':MESSAGE_ADDED}, message_marshaller), 200
 
+@cross_origin()
 @ns.route('/assignment/<string:aid>/reviewee/<string:sid>/reviews/summary')
 @api.doc(params={'aid': 'The assignment ID', 'sid': 'The reviewee ID'})
 class SummaryByAssignmentReviewee(Resource):
@@ -393,6 +400,7 @@ class SummaryByAssignmentReviewee(Resource):
         except Exception as e:
             abort(500, message=str(e)) 
 
+@cross_origin()
 @ns.route('/assignment/<string:aid>/reviewee/<string:sid>/reviews/summary/<int:length>')
 @api.doc(params={'aid': 'The assignment ID', 'sid': 'The reviewee ID', 'length': 'Length of the summary'})
 class SummaryLengthByAssignmentReviewee(Resource):
@@ -409,6 +417,7 @@ class SummaryLengthByAssignmentReviewee(Resource):
         except Exception as e:
             abort(500, message=str(e))
 
+@cross_origin()
 @ns.route('/assignment/<string:aid>/reviewee/<string:sid>/reviews/summary/<int:length>/<string:algorithm>')
 @api.response(404, 'Algorithm not found')
 @api.response(200, 'Succeed executing the command')
@@ -432,6 +441,7 @@ class SummaryLengthAlgorithmByAssignmentReviewee(Resource):
             abort(500, message=str(e))
 
 ##########ByAssignmentRevieweeCriteria
+@cross_origin()
 @ns.route('/assignment/<string:aid>/reviewee/<string:sid>/criterion/<string:cid>/reviews')
 @api.response(404, 'reviews not found')
 @api.doc(params={'aid': 'The assignment ID', 'sid': 'The reviewee ID', 'cid': 'The criterion ID'})
@@ -471,6 +481,7 @@ class ReviewByAssignmentRevieweeCriteria(Resource):
             return abort(500, message=str(e))
         return marshal({'message':MESSAGE_ADDED}, message_marshaller), 200
 
+@cross_origin()
 @ns.route('/assignment/<string:aid>/reviewee/<string:sid>/criterion/<string:cid>/reviews/summary')
 @api.doc(params={'aid': 'The assignment ID', 'sid': 'reviewee_id', 'cid': 'The criteria ID'})
 class SummaryByAssignmentRevieweeCriteria(Resource):
@@ -486,6 +497,7 @@ class SummaryByAssignmentRevieweeCriteria(Resource):
         except Exception as e:
             abort(500, message=str(e))
 
+@cross_origin()
 @ns.route('/assignment/<string:aid>/reviewee/<string:sid>/criterion/<string:cid>/reviews/summary/<int:length>')
 @api.doc(params={'aid': 'The assignment ID', 'cid': 'The criteria ID', 'length': 'Length of the summary'})
 class SummaryLengthByAssignmentCriteria(Resource):
@@ -502,6 +514,7 @@ class SummaryLengthByAssignmentCriteria(Resource):
         except Exception as e:
             abort(500, message=str(e))
 
+@cross_origin()
 @ns.route('/assignment/<string:aid>/reviewee/<string:sid>/criterion/<string:cid>/reviews/summary/<length>/<algorithm>')
 @api.response(404, 'Assignment not found')
 @api.doc(params={'aid': 'The assignment ID', 'cid': 'The criteria ID', 'length': 'Length of the summary'})
@@ -523,6 +536,7 @@ class SummaryLengthAlgorithmByAssignmentCriteria(Resource):
         except Exception as e:
             abort(500, message=str(e))
 
+@cross_origin()
 @ns.route('/summary')
 class GenericSummary(Resource):
 
@@ -539,6 +553,7 @@ class GenericSummary(Resource):
         except Exception as e:
             abort(500, message=str(e))
 
+@cross_origin()
 @ns.route('/summary/<length>')
 class SummaryLen(Resource):
 
@@ -555,6 +570,7 @@ class SummaryLen(Resource):
         except Exception as e:
             abort(500, message=str(e))
 
+@cross_origin()
 @ns.route('/summary/<length>/<algorithm>')
 class SummaryLen(Resource):
 
