@@ -20,9 +20,9 @@
 
                 len = document.getElementById("length").value;
 
-                xhr.open(input_form.method, "http://peerlogic.csc.ncsu.edu/sum/v1.0/summary/" + len, true);
+                xhr.open(input_form.method, window.location.href.replace("instructor", "sum/v1.0/summary/")+ len, true);
                 xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
-                xhr.send(document.getElementById("json_config").value);
+                xhr.send(JSON.stringify({ "sentences": [document.getElementById("json_config").value] }));
             }
 
             function copyToClipboard(elem) {
@@ -74,7 +74,6 @@
                 }
                 return succeed;
             }
-
         </script>
 
         <div id="fb-root"></div>
@@ -100,22 +99,23 @@
                 <input type="range"  min="2" max="10" value="5" step="1" id="length"/>
             </p>
 
-            <p><textarea rows="50" cols="160"  name="json config" id="json_config" class="form-field"></textarea></p>
+            <p><textarea rows="20" cols="160"  name="json config" id="json_config" class="form-field"></textarea></p>
             <p><button type="button"  class="submit-button" onclick="submitform()">Go get the summary!</button></p>
-            <p><div id="response"></div></p>
         </form>
-                <div class="form-container">
+        &nbsp;
+        <div class="form-container">
+            <h2 class="form-title">Result</h2>
+            <div id="response"></div>
+        </div>
+        &nbsp;
+        <div class="form-container">
             <div class="form-title"><h2>You can use the example of reviews below to try the atomatic summarization</h2></div>
              &nbsp;
-            <pre id="json_example">
-            {
-                "sentences": [
-                    "No specific procedures were described, and no measurement of the mass of reagent is listed. This reads more like a general description of how to perform the experiment. It does not include any calculations to prove that a 2.00*^-4 M solution with an inherent error of 1% can be produced.",
-                    "The procedure does not outline a beginning value for NaCl. While it does pay attention to steps in the dilution procedures, it fails to account for error in the equipment.",
-                    "First, the person used a dye to mix his or her solution, so it didn't even use the correct solute. However, this person has the right idea of diluting the solutions 3 times to achieve an inherent error of less than 1%."
-                ]
-            }
-            </pre>
+            <p id="json_example">
+            No specific procedures were described, and no measurement of the mass of reagent is listed. This reads more like a general description of how to perform the experiment. It does not include any calculations to prove that a 2.00*^-4 M solution with an inherent error of 1% can be produced.
+            The procedure does not outline a beginning value for NaCl. While it does pay attention to steps in the dilution procedures, it fails to account for error in the equipment.
+            First, the person used a dye to mix his or her solution, so it didn't even use the correct solute. However, this person has the right idea of diluting the solutions 3 times to achieve an inherent error of less than 1%.
+            </p>
             <p>
                 <button type="button" class="submit-button" onclick="copyToClipboard(document.getElementById('json_example'))">Copy Example</button>
                 &nbsp;

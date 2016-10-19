@@ -252,7 +252,7 @@ parser_sum.add_argument('sentences', required=True, location='json', help='Input
                                                                           '<br>{'
                                                                           '<br>&nbsp;"sentences":['
                                                                           '<br>&nbsp;&nbsp;"sentence1"'
-                                                                          '<br>&nbsp;['
+                                                                          '<br>&nbsp;]'
                                                                           '<br>}')
 
 
@@ -768,6 +768,7 @@ class GenericSummary(Resource):
         except Exception as e:
             abort(500, message=str(e))
 
+@cross_origin()
 @ns.route('/summaryinfo')
 class GenericSummaryInfo(Resource):
 
@@ -803,6 +804,7 @@ class SummaryLen(Resource):
         except Exception as e:
             abort(500, message=str(e))
 
+@cross_origin()
 @ns.route('/summaryinfo/<length>')
 @api.doc(params={'length': 'Length of the summary'})
 class SummaryInfoLen(Resource):
@@ -839,6 +841,7 @@ class SummaryLenAlg(Resource):
         except Exception as e:
             abort(500, message=str(e))
 
+@cross_origin()
 @ns.route('/summaryinfo/<length>/<algorithm>')
 @api.doc(params={'length': 'Length of the summary', 'algorithm': 'summarization algorithm, please choose on of these: textrank, lexrank, luhn, edmonson, kl, lsa, sumbasic, random'})
 class SummaryInfoLenAlg(Resource):
@@ -864,7 +867,7 @@ def developer():
     return render_template("developer.html")
 
 @app.route('/instructor')
-def developer():
+def instructor():
     return render_template("instructor.html")
 
 

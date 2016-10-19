@@ -13,14 +13,14 @@
                 var xhr = new XMLHttpRequest();
                 xhr.onreadystatechange = function() {
                     if (xhr.readyState == 4) {
-                       document.getElementById('response').innerHTML = xhr.responseText
+                       document.getElementById('response').innerHTML = JSON.stringify(JSON.parse(xhr.responseText), null, "\t")
                     }
                 }
 
                 alg = document.getElementById("algorithm").value;
                 len = document.getElementById("length").value;
 
-                xhr.open(input_form.method, "http://peerlogic.csc.ncsu.edu/sum/v1.0/summary/" + len + "/" + alg, true);
+                xhr.open(input_form.method, window.location.href.replace("developer", "sum/v1.0/summary/")+ len + "/" + alg, true);
                 xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
                 xhr.send(document.getElementById("json_config").value);
             }
@@ -111,23 +111,25 @@
 
             </p>
 
-            <p><textarea rows="50" cols="160"  name="json config" id="json_config" class="form-field"></textarea></p>
+            <p><textarea rows="20" cols="160"  name="json config" id="json_config" class="form-field"></textarea></p>
             <p><button type="button"  class="submit-button" onclick="submitform()">Go get the summary!</button></p>
-            <p><div id="response"></div></p>
         </form>
+        &nbsp;
+        <pre class="form-container">
+            <div id="response"></div>
+        </pre>
         &nbsp;
         <div class="form-container">
             <div class="form-title"><h2>Example of JSON configuration</h2></div>
              &nbsp;
-            <p><button type="button" class="submit-button" onclick="copyToClipboard(document.getElementById('json_example'))">Copy Example</button></p>
             <pre id="json_example">
-            {
-                "sentences": [
-                    "No specific procedures were described, and no measurement of the mass of reagent is listed. This reads more like a general description of how to perform the experiment. It does not include any calculations to prove that a 2.00*^-4 M solution with an inherent error of 1% can be produced.",
-                    "The procedure does not outline a beginning value for NaCl. While it does pay attention to steps in the dilution procedures, it fails to account for error in the equipment.",
-                    "First, the person used a dye to mix his or her solution, so it didn't even use the correct solute. However, this person has the right idea of diluting the solutions 3 times to achieve an inherent error of less than 1%."
-                ]
-            }
+    {
+        "sentences": [
+            "No specific procedures were described, and no measurement of the mass of reagent is listed. This reads more like a general description of how to perform the experiment. It does not include any calculations to prove that a 2.00*^-4 M solution with an inherent error of 1% can be produced.",
+            "The procedure does not outline a beginning value for NaCl. While it does pay attention to steps in the dilution procedures, it fails to account for error in the equipment.",
+            "First, the person used a dye to mix his or her solution, so it didn't even use the correct solute. However, this person has the right idea of diluting the solutions 3 times to achieve an inherent error of less than 1%."
+        ]
+    }
             </pre>
             <p>
                 <button type="button" class="submit-button" onclick="copyToClipboard(document.getElementById('json_example'))">Copy Example</button>
