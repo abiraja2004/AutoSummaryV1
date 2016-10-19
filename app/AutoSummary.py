@@ -1,8 +1,7 @@
 import sqlite3 as sqllite
 import sys
 
-
-from flask import Flask, request
+from flask import Flask, request, render_template
 from flask_cors import CORS, cross_origin
 
 from sumy.nlp.stemmers import Stemmer
@@ -588,7 +587,13 @@ class SummaryLen(Resource):
             abort(500, message=str(e))
 
 
+@app.route('/developer')
+def developer():
+    return render_template("developer.html")
 
+@app.route('/instructor')
+def developer():
+    return render_template("instructor.html")
 
 
 if __name__ == '__main__':
