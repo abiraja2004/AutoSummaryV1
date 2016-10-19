@@ -6,8 +6,9 @@
     {% include 'swagger-ui-libs.html' %}
     <script type="text/javascript">
         $(function () {
+            var server_url = "{{ specs_url }}"
             window.swaggerUi = new SwaggerUi({
-                url: "{{ specs_url }}",
+                url:  window.location.href + server_url.substr(server_url.lastIndexOf('/') + 1),
                 validatorUrl: "{{ config.SWAGGER_VALIDATOR_URL }}" || null,
                 dom_id: "swagger-ui-container",
                 supportedSubmitMethods: ['get', 'post', 'put', 'delete', 'patch'],
